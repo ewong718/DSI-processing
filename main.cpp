@@ -1,10 +1,13 @@
 /* Calculate ODF C++ Version
- Current variables used: imvol, qdata, odf_faces, odf_vertices
- */
+By Edmund Wong
+Current variables used: imvol, qdata, odf_faces, odf_vertices
+*/
 
-//KNOWN ISSUES: nifti_image_read_bricks function only reads 128x128x128x515 volumes properly. For example, it reads the seal 64*64*32*515  correctly (possibly for the first 6291456 elements) then after its wrong
-//Needs user input for path to find the nifti_file.
-//Needs user input for output name
+//KNOWN ISSUES: nifti_image_read_bricks only reads images with 128x128x128x515 volumes properly.
+// This is possibly a bug with nifti_image_read_bricks
+// For example, it reads the seal image (64x64x32x515)  correctly for the first 6291456 elements, then after that, the values are wrong
+// Needs user input for path to find the nifti_file.
+// Needs user input for output name
 
 #include <string>
 #include <sstream>
@@ -21,7 +24,7 @@ int main()
 {
     using namespace std;
     
-    //**Timer start**//
+    //Timer start
     time_t rawtime;
     struct tm * timeinfo;
     time ( &rawtime );
@@ -29,6 +32,8 @@ int main()
     
     ifstream in, in2, in3;
     string qdatapath, qdirfile, qfacefile, qverticefile;
+
+    //Prepare user input
     while (true)
     {
         cout << "Please specify the path of the necessary ODF processing files." << endl;
@@ -75,8 +80,6 @@ int main()
     
     string line, field;
     int qdata[515][3];
-    //int odf_faces[3][1280];
-    //double odf_vertices[3][642];
     string s;
     char *a;
     
@@ -85,16 +88,13 @@ int main()
     nifti_brick_list NB_orig;
     signed int *imvol; //change to float or int depending on dsi raw image
     
-    img = nifti_image_read_bricks("/Users/edmundwong/Desktop/Cheukstuff/TEST_DSI2014/fennecfox/20140412_124030.nii", 0, NULL, &NB_orig);
+    img = nifti_image_read_bricks("/scratch/my_dsi_file.nii", 0, NULL, &NB_orig);
     imvol=(signed int*)NB_orig.bricks[0]; //change to float or short depending on dsi raw image
-    
-    //for (size_t i=0; i<515; i++)
-    //    cout << imvol[i*2097152+16394]<< endl;
+
     int xdim = img->dim[1];
     int ydim = img->dim[2];
     int zdim = img->dim[3];
     int tdim = img->dim[4];
-    //cout << imvol[64 + 64*xdim + 64*xdim*ydim + 3*xdim*ydim*zdim]<< endl;
     
     vector< vector<string> > array;  // the 2D array
     vector<string> v;                // array of values for one line only
@@ -102,24 +102,22 @@ int main()
     vector<string> v2;
     vector< vector<string> > array3;  // the 2D array
     vector<string> v3;
+
+    //Read in the data from file one (q.csv) and arrange into an array
     
-    while ( getline(in,line) )    // get next line in file
+    while ( getline(in,line) )
     {
         v.clear();
-        stringstream ss(line);
-        
-        while (getline(ss,field,','))  // break line into comma delimitted fields
-            v.push_back(field);  // add each field to the 1D array
-        
-        array.push_back(v);  // add the 1D array to the 2D array
+        stringstream ss(line);        
+        while (getline(ss,field,','))
+            v.push_back(field);        
+        array.push_back(v);
     }
     
-    // print out what was read in
     
     for (size_t i=0; i<array.size(); ++i)
         for (size_t j=0; j<array[i].size(); ++j)
         {
-            //cout << array[i][j] << " ";
             s = array[i][j];
             a=new char[s.size()+1];
             a[s.size()]=0;
@@ -127,17 +125,15 @@ int main()
             qdata[i][j]=atoi(a);
         }
     
-    // ***** ODF FACES load *****
+    //Read in the data from file one (ODF FACES) and arrange into an array
     
-    while ( getline(in2,line) )    // get next line in file
+    while ( getline(in2,line) )
     {
         v2.clear();
         stringstream ss(line);
-        
-        while (getline(ss,field,','))  // break line into comma delimitted fields
-            v2.push_back(field);  // add each field to the 1D array
-        
-        array2.push_back(v2);  // add the 1D array to the 2D array
+        while (getline(ss,field,','))
+            v2.push_back(field);
+        array2.push_back(v2);
     }
     
     int no_odf_faces = (int)array2[0].size();
@@ -153,17 +149,15 @@ int main()
             odf_faces[i][j]=atoi(a);
         }
     
-    // ***** ODF VERTICES load *****
+    //Read in the data from file one (ODF VERTICES) and arrange into an array
     
-    while ( getline(in3,line) )    // get next line in file
+    while ( getline(in3,line) )
     {
         v3.clear();
-        stringstream ss(line);
-        
-        while (getline(ss,field,','))  // break line into comma delimitted fields
-            v3.push_back(field);  // add each field to the 1D array
-        
-        array3.push_back(v3);  // add the 1D array to the 2D array
+        stringstream ss(line);        
+        while (getline(ss,field,','))
+            v3.push_back(field);        
+        array3.push_back(v3);
     }
     
     int no_odf_vertices = (int)array3[0].size();
@@ -182,25 +176,22 @@ int main()
     
     // Declaring variables
     double hanning_filter[515];
-    double value[tdim];
-#define PI 3.14159
-    
+    double value[tdim];    
     double sq[16][16][16];
-    double sqnew[16][16][16];
-    
+    double sqnew[16][16][16];    
     double xi[20], yi[20], zi[20], r[20], v_xyz[20], x_val, y_val, z_val;
     int x_fl, x_ce, y_fl, y_ce, z_fl, z_ce;
     double origin = 9;
-    int N = 16*16*16;
-    
+    int N = 16*16*16;    
     size_t ii, jj, kk;
+
     fftw_complex *in_fft, *out_fft;
     in_fft = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * N); // N is 16*16*16
     out_fft = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * N);
     fftw_plan p;
     double fft_output[16][16][16];
     double Pr[16][16][16];
-    double odf[half_no_odf_vertices]; //321
+    double odf[half_no_odf_vertices];
     float *odf_whole = new float[xdim*ydim*zdim*half_no_odf_vertices];/*modified*/
     
     // Assign constant values to r vector
@@ -335,8 +326,7 @@ int main()
     
     FILE * pFile;
     
-    //char pathname[] = "/Users/edmundwong/Desktop/odfoutput/odfwhole";
-    pFile = fopen ( "/Users/edmundwong/Desktop/Cheukstuff/TEST_DSI2014/fennecfox/fennec_fox_odf.nii" , "wb" );
+    pFile = fopen ( "/scratch/output.nii" , "wb" );
     
     int * sizeof_hdr = new int;
     char * data_type = new char[10];
